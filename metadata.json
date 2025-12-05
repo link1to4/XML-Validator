@@ -1,0 +1,5 @@
+{
+  "name": "XML DTD Validator",
+  "description": "A smart XML validator that checks XML syntax and compliance against a DTD schema using local browser tools.",
+  "requestFramePermissions": []
+}

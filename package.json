@@ -1,15 +1,12 @@
 {
-  "name": "XML-Validator",
+  "name": "xml-dtd-validator",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://link1to4.github.io/XML-Validator", 
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "preview": "vite preview"
   },
   "dependencies": {
     "lucide-react": "^0.555.0",

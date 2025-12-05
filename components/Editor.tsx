@@ -1,4 +1,9 @@
-import React from 'react';
+import React, { useRef, useImperativeHandle, forwardRef, useState } from 'react';
+import { Upload } from 'lucide-react';
+
+export interface EditorHandle {
+  scrollToLine: (line: number) => void;
+}
 
 interface EditorProps {
   label: string;
@@ -8,10 +13,79 @@ interface EditorProps {
   languageLabel?: string;
 }
 
-const Editor: React.FC<EditorProps> = ({ label, value, onChange, placeholder, languageLabel }) => {
+const Editor = forwardRef<EditorHandle, EditorProps>(({ label, value, onChange, placeholder, languageLabel }, ref) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  useImperativeHandle(ref, () => ({
+    scrollToLine: (lineNumber: number) => {
+      if (!textareaRef.current) return;
+
+      const lines = value.split('\n');
+      // Line numbers are 1-based, array is 0-based
+      const targetIndex = lineNumber - 1;
+
+      if (targetIndex < 0 || targetIndex >= lines.length) return;
+
+      // Calculate character position up to that line
+      let charCount = 0;
+      for (let i = 0; i < targetIndex; i++) {
+        // Add length of line plus 1 for the newline character
+        charCount += lines[i].length + 1; 
+      }
+
+      // Set cursor position to the start of that line
+      // This forces the browser to scroll the textarea to reveal the cursor
+      textareaRef.current.focus();
+      textareaRef.current.setSelectionRange(charCount, charCount);
+      
+      // Optional: Smooth scroll adjustment to center slightly if supported/needed, 
+      // but focus() usually does the job well enough for standard textareas.
+      textareaRef.current.blur(); 
+      setTimeout(() => textareaRef.current?.focus(), 10);
+    }
+  }));
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    // Check if we are really leaving the container, not just entering a child
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          onChange(event.target.result as string);
+        }
+      };
+      
+      reader.readAsText(file);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-slate-800 rounded-lg overflow-hidden border border-slate-700 shadow-xl">
-      <div className="bg-slate-900/50 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
+    <div 
+      className={`flex flex-col h-full bg-slate-800 rounded-lg overflow-hidden border shadow-xl transition-all duration-200 ${isDragging ? 'border-brand-500 ring-2 ring-brand-500/20 scale-[1.02]' : 'border-slate-700'}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <div className="bg-slate-900/50 px-4 py-3 border-b border-slate-700 flex justify-between items-center relative z-10">
         <label className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
           {label}
         </label>
@@ -23,15 +97,26 @@ const Editor: React.FC<EditorProps> = ({ label, value, onChange, placeholder, la
       </div>
       <div className="flex-1 relative">
         <textarea
-          className="w-full h-full bg-slate-800 text-slate-300 p-4 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:bg-slate-800/80 transition-all custom-scrollbar"
+          ref={textareaRef}
+          className="w-full h-full bg-slate-800 text-slate-300 p-4 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:bg-slate-800/80 transition-all custom-scrollbar relative z-0"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           spellCheck={false}
         />
+        
+        {/* Drag Overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm flex flex-col items-center justify-center z-20 animate-in fade-in duration-200 pointer-events-none">
+            <Upload className="w-12 h-12 text-brand-500 mb-2 animate-bounce" />
+            <p className="text-brand-100 font-bold text-lg">Drop file here to load</p>
+          </div>
+        )}
       </div>
     </div>
   );
-};
+});
+
+Editor.displayName = 'Editor';
 
 export default Editor;

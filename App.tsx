@@ -1,19 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Play, Trash2 } from 'lucide-react';
-import Editor from './components/Editor';
+import Editor, { EditorHandle } from './components/Editor';
 import ResultPanel from './components/ResultPanel';
 import HistoryPanel from './components/HistoryPanel';
 import { validateXmlWithDtd } from './services/geminiService';
 import { ValidationResult, HistoryItem } from './types';
 
 // Helper for generating IDs in environments where crypto.randomUUID might be unavailable 
-// (e.g. non-secure contexts like http://localhost)
 const generateId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     try {
       return crypto.randomUUID();
     } catch (e) {
-      // Fallback if it fails
+      // Fallback
     }
   }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -29,6 +28,9 @@ const App: React.FC = () => {
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  // Ref to access the XML Editor's methods
+  const xmlEditorRef = useRef<EditorHandle>(null);
 
   const handleValidate = async () => {
     if (!dtdInput.trim() || !xmlInput.trim()) {
@@ -76,6 +78,12 @@ const App: React.FC = () => {
     setXmlInput(item.xml);
     setResult(item.result);
     setError(null);
+  };
+
+  const handleJumpToLine = (line: number) => {
+    if (xmlEditorRef.current) {
+      xmlEditorRef.current.scrollToLine(line);
+    }
   };
 
   // Sample data for quick testing
@@ -130,6 +138,7 @@ const App: React.FC = () => {
             languageLabel="DTD"
           />
           <Editor 
+            ref={xmlEditorRef}
             label="XML Document" 
             value={xmlInput} 
             onChange={setXmlInput} 
@@ -176,7 +185,12 @@ const App: React.FC = () => {
         <div className="shrink-0 h-[35%] min-h-[200px] grid grid-cols-1 lg:grid-cols-4 gap-4">
            {/* Current Result */}
            <div className="lg:col-span-3 h-full overflow-y-auto custom-scrollbar">
-              <ResultPanel result={result} loading={loading} error={error} />
+              <ResultPanel 
+                result={result} 
+                loading={loading} 
+                error={error} 
+                onLineClick={handleJumpToLine}
+              />
            </div>
            
            {/* History Panel */}

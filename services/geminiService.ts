@@ -23,30 +23,34 @@ const parseDtd = (dtd: string): Map<string, DtdDefinition> => {
     // Remove comments within the spec if any (simple handling)
     spec = spec.replace(/--.*?--/g, '');
 
+    // Normalize spec for type checking by removing ALL whitespace
+    // This fixes issues where '(#PCDATA)' is written as '( \n #PCDATA \n )'
+    const cleanSpec = spec.replace(/\s+/g, '');
+
     const def: DtdDefinition = {
       type: 'CHILDREN',
       rawSpec: spec
     };
 
-    if (spec === 'EMPTY') {
+    if (cleanSpec === 'EMPTY') {
       def.type = 'EMPTY';
-    } else if (spec === 'ANY') {
+    } else if (cleanSpec === 'ANY') {
       def.type = 'ANY';
-    } else if (spec === '(#PCDATA)') {
+    } else if (cleanSpec === '(#PCDATA)') {
       def.type = 'PCDATA';
-    } else if (spec.startsWith('(#PCDATA')) {
+    } else if (cleanSpec.startsWith('(#PCDATA')) {
       // Mixed content: (#PCDATA|a|b)*
       def.type = 'MIXED';
-      // Extract allowed element names
+      // Extract allowed element names from cleanSpec
       // Remove (#PCDATA and )* and split by |
-      const clean = spec.replace(/^\(#PCDATA\s*\|\s*/, '').replace(/\)\*$/, '');
-      const parts = clean.split('|');
-      def.allowedElements = new Set(parts.map(p => p.trim()));
+      const content = cleanSpec.replace(/^\(#PCDATA\|/, '').replace(/\)\*?$/, '');
+      const parts = content.split('|');
+      def.allowedElements = new Set(parts);
     } else {
       // Element content: (a,b,(c|d)+)
       def.type = 'CHILDREN';
       try {
-        def.regex = convertSpecToRegex(spec);
+        def.regex = convertSpecToRegex(spec); // pass original spec (convertSpecToRegex handles whitespace)
       } catch (e) {
         console.warn(`Failed to parse content spec for ${tagName}:`, spec, e);
         // Fallback to basic ANY-like behavior if parsing fails, but log it
@@ -77,8 +81,6 @@ const convertSpecToRegex = (spec: string): RegExp => {
   for (let t of tokens) {
     if (!t) continue;
     
-    // FIX: Added ',' to the includes array so it's treated as an operator (concatenation)
-    // instead of part of an element name.
     if (['(', ')', '|', '*', '+', '?', ','].includes(t)) {
       if (t === '(') regexStr += '(?:'; // Non-capturing group start
       else if (t === ')') regexStr += ')'; // Group end
@@ -96,17 +98,89 @@ const convertSpecToRegex = (spec: string): RegExp => {
   return new RegExp(regexStr);
 };
 
+// Helper to map DOM elements to line numbers
+const mapElementLines = (xmlStr: string, root: Element): Map<Element, number> => {
+  const lineMap = new Map<Element, number>();
+  
+  // 1. Compute line offsets
+  const lines = xmlStr.split(/\r\n|\r|\n/);
+  const lineOffsets: number[] = [];
+  let charCount = 0;
+  lines.forEach(line => {
+    lineOffsets.push(charCount);
+    charCount += line.length + 1; // +1 for newline char assumption
+  });
+
+  // 2. Mask Comments and CDATA to avoid false positives in regex
+  // Replace content with spaces to preserve indices/line counts
+  let maskedXml = xmlStr.replace(/<!--[\s\S]*?-->/g, (match) => ' '.repeat(match.length));
+  maskedXml = maskedXml.replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, (match) => ' '.repeat(match.length));
+
+  // 3. Find all start tags in order
+  // Regex to match <TagName ... >
+  const tagRegex = /<([a-zA-Z0-9_\-.:]+)[^>]*>/g;
+  let match;
+  const tagLocations: { tagName: string, index: number, line: number }[] = [];
+  
+  while ((match = tagRegex.exec(maskedXml)) !== null) {
+    const tagName = match[1];
+    const index = match.index;
+    
+    // Find line number via binary search or simple loop
+    // Simple loop is fast enough for typical XML sizes
+    let line = 1;
+    for (let i = 0; i < lineOffsets.length; i++) {
+        if (index >= lineOffsets[i]) {
+            line = i + 1;
+        } else {
+            break;
+        }
+    }
+    
+    tagLocations.push({ tagName, index, line });
+  }
+
+  // 4. Traverse DOM and match
+  let matchIndex = 0;
+  
+  const traverse = (node: Element) => {
+    const targetTag = node.tagName;
+    
+    // Scan forward for the next matching tag name
+    // (There might be slight desyncs if XML is malformed, but this is heuristic)
+    let tempIndex = matchIndex;
+    while (tempIndex < tagLocations.length) {
+        if (tagLocations[tempIndex].tagName === targetTag) {
+            lineMap.set(node, tagLocations[tempIndex].line);
+            matchIndex = tempIndex + 1;
+            break;
+        }
+        tempIndex++;
+    }
+
+    for (const child of Array.from(node.children)) {
+        traverse(child);
+    }
+  };
+
+  traverse(root);
+  return lineMap;
+};
+
 const validateNode = (
   node: Element, 
-  definitions: Map<string, DtdDefinition>
+  definitions: Map<string, DtdDefinition>,
+  lineMap: Map<Element, number>
 ): string[] => {
   const errors: string[] = [];
   const tagName = node.tagName;
   const def = definitions.get(tagName);
+  const line = lineMap.get(node) || '?';
+  const prefix = `[Line ${line}]`;
 
   // 1. Check if element is defined
   if (!def) {
-    return [`Element <${tagName}> is used in XML but not defined in DTD.`];
+    return [`${prefix} Element <${tagName}> is used in XML but not defined in DTD.`];
   }
 
   // 2. Validate Content based on Type
@@ -126,13 +200,13 @@ const validateNode = (
   switch (def.type) {
     case 'EMPTY':
       if (childElements.length > 0 || hasNonWhitespaceText) {
-        errors.push(`Element <${tagName}> is declared EMPTY but contains content.`);
+        errors.push(`${prefix} Element <${tagName}> is declared EMPTY but contains content.`);
       }
       break;
 
     case 'PCDATA':
       if (childElements.length > 0) {
-        errors.push(`Element <${tagName}> is declared (#PCDATA) but contains child elements.`);
+        errors.push(`${prefix} Element <${tagName}> is declared (#PCDATA) but contains child elements.`);
       }
       break;
 
@@ -140,7 +214,7 @@ const validateNode = (
       // (#PCDATA|a|b)* - allows text and specific tags
       for (const child of childElements) {
         if (!def.allowedElements?.has(child.tagName)) {
-          errors.push(`Element <${tagName}> contains unexpected child <${child.tagName}>. Allowed mixed content: ${Array.from(def.allowedElements || []).join(', ')}.`);
+          errors.push(`${prefix} Element <${tagName}> contains unexpected child <${child.tagName}>. Allowed mixed content: ${Array.from(def.allowedElements || []).join(', ')}.`);
         }
       }
       break;
@@ -148,7 +222,7 @@ const validateNode = (
     case 'CHILDREN':
       // Element content - NO text allowed (whitespace is ignorable usually, strictly speaking depends on xml:space but we assume validation logic here checks for data)
       if (hasNonWhitespaceText) {
-        errors.push(`Element <${tagName}> has element-only content definition but contains text data: "${textContent.trim().substring(0, 20)}..."`);
+        errors.push(`${prefix} Element <${tagName}> has element-only content definition but contains text data: "${textContent.trim().substring(0, 20)}..."`);
       }
 
       // Validate structure using Regex
@@ -161,7 +235,9 @@ const validateNode = (
           ? childElements.map(c => c.tagName).join(', ')
           : 'None';
         
-        errors.push(`Element <${tagName}> has invalid content structure.\nFound children: [${currentChildren}]\nExpected DTD sequence: ${def.rawSpec}`);
+        // Improve error message readability
+        const cleanSpec = def.rawSpec.replace(/\s+/g, ' ');
+        errors.push(`${prefix} Element <${tagName}> has invalid content structure.\nFound children: [${currentChildren}]\nExpected DTD sequence: ${cleanSpec}`);
       }
       break;
 
@@ -173,7 +249,7 @@ const validateNode = (
 
   // 3. Recurse for children
   for (const child of childElements) {
-    errors.push(...validateNode(child, definitions));
+    errors.push(...validateNode(child, definitions, lineMap));
   }
 
   return errors;
@@ -217,7 +293,8 @@ export const validateXmlWithDtd = async (dtd: string, xml: string): Promise<Vali
         // Start from root element
         const root = xmlDoc.documentElement;
         if (root) {
-            errors.push(...validateNode(root, definitions));
+            const lineMap = mapElementLines(xml, root);
+            errors.push(...validateNode(root, definitions, lineMap));
         } else {
             errors.push("XML document has no root element.");
         }

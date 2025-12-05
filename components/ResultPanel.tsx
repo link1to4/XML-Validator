@@ -6,9 +6,10 @@ interface ResultPanelProps {
   result: ValidationResult | null;
   loading: boolean;
   error: string | null;
+  onLineClick?: (line: number) => void;
 }
 
-const ResultPanel: React.FC<ResultPanelProps> = ({ result, loading, error }) => {
+const ResultPanel: React.FC<ResultPanelProps> = ({ result, loading, error, onLineClick }) => {
   if (loading) {
     return (
       <div className="h-full w-full flex flex-col items-center justify-center text-slate-400 space-y-4 animate-pulse">
@@ -61,12 +62,39 @@ const ResultPanel: React.FC<ResultPanelProps> = ({ result, loading, error }) => 
             Detailed Errors
           </h3>
           <ul className="space-y-3">
-            {result.errors.map((err, idx) => (
-              <li key={idx} className="flex gap-3 text-red-300/90 font-mono text-sm bg-red-950/30 p-3 rounded border border-red-900/30 whitespace-pre-wrap">
-                <span className="text-red-500 select-none mt-0.5">•</span>
-                <span>{err}</span>
-              </li>
-            ))}
+            {result.errors.map((err, idx) => {
+              // Extract Line info if present
+              const lineMatch = err.match(/^\[Line (\d+|\?)\]/);
+              const linePart = lineMatch ? lineMatch[1] : null; // Extract number only
+              const fullLineBadge = lineMatch ? lineMatch[0] : null;
+              const msgPart = lineMatch ? err.substring(lineMatch[0].length) : err;
+
+              return (
+                <li key={idx} className="flex gap-3 text-red-300/90 font-mono text-sm bg-red-950/30 p-3 rounded border border-red-900/30 whitespace-pre-wrap">
+                  <span className="text-red-500 select-none mt-0.5">•</span>
+                  <div className="flex-1">
+                    {fullLineBadge && (
+                      <button 
+                        onClick={() => {
+                          if (linePart && linePart !== '?' && onLineClick) {
+                            onLineClick(parseInt(linePart, 10));
+                          }
+                        }}
+                        className={`inline-block px-1.5 py-0.5 rounded text-xs mr-2 border font-bold transition-all
+                          ${linePart && linePart !== '?' 
+                            ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30 hover:bg-yellow-500/40 hover:text-white cursor-pointer hover:underline' 
+                            : 'bg-slate-700 text-slate-400 border-slate-600 cursor-default'
+                          }`}
+                        title={linePart && linePart !== '?' ? "Click to jump to line in XML" : "Line unknown"}
+                      >
+                        {fullLineBadge}
+                      </button>
+                    )}
+                    <span>{msgPart}</span>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

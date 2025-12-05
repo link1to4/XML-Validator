@@ -11,9 +11,10 @@ interface EditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   languageLabel?: string;
+  dropLabel?: string;
 }
 
-const Editor = forwardRef<EditorHandle, EditorProps>(({ label, value, onChange, placeholder, languageLabel }, ref) => {
+const Editor = forwardRef<EditorHandle, EditorProps>(({ label, value, onChange, placeholder, languageLabel, dropLabel = "Drop file here to load" }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -109,7 +110,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(({ label, value, onChange, 
         {isDragging && (
           <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm flex flex-col items-center justify-center z-20 animate-in fade-in duration-200 pointer-events-none">
             <Upload className="w-12 h-12 text-brand-500 mb-2 animate-bounce" />
-            <p className="text-brand-100 font-bold text-lg">Drop file here to load</p>
+            <p className="text-brand-100 font-bold text-lg">{dropLabel}</p>
           </div>
         )}
       </div>

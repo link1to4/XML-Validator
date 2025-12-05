@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { Play, Trash2 } from 'lucide-react';
+import { Play, Trash2, Languages } from 'lucide-react';
 import Editor, { EditorHandle } from './components/Editor';
 import ResultPanel from './components/ResultPanel';
 import HistoryPanel from './components/HistoryPanel';
 import { validateXmlWithDtd } from './services/geminiService';
-import { ValidationResult, HistoryItem } from './types';
+import { ValidationResult, HistoryItem, Language } from './types';
+import { getTranslation } from './constants/translations';
 
 // Helper for generating IDs in environments where crypto.randomUUID might be unavailable 
 const generateId = () => {
@@ -28,13 +29,21 @@ const App: React.FC = () => {
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [lang, setLang] = useState<Language>('en');
 
-  // Ref to access the XML Editor's methods
+  const t = getTranslation(lang);
+
+  // Refs to access Editors' methods
   const xmlEditorRef = useRef<EditorHandle>(null);
+  const dtdEditorRef = useRef<EditorHandle>(null);
+
+  const toggleLanguage = () => {
+    setLang(prev => prev === 'en' ? 'zh' : 'en');
+  };
 
   const handleValidate = async () => {
     if (!dtdInput.trim() || !xmlInput.trim()) {
-      setError("Please provide both DTD and XML content.");
+      setError(t.errorInput);
       return;
     }
 
@@ -80,9 +89,11 @@ const App: React.FC = () => {
     setError(null);
   };
 
-  const handleJumpToLine = (line: number) => {
-    if (xmlEditorRef.current) {
+  const handleJumpToLocation = (location: 'xml' | 'dtd', line: number) => {
+    if (location === 'xml' && xmlEditorRef.current) {
       xmlEditorRef.current.scrollToLine(line);
+    } else if (location === 'dtd' && dtdEditorRef.current) {
+      dtdEditorRef.current.scrollToLine(line);
     }
   };
 
@@ -113,15 +124,26 @@ const App: React.FC = () => {
               XML
             </div>
             <h1 className="text-xl font-bold text-slate-100 tracking-tight">
-              DTD Validator <span className="text-brand-500 text-sm font-normal ml-1 border border-brand-500/30 bg-brand-500/10 px-1.5 py-0.5 rounded">Local Mode</span>
+              {t.appTitle} <span className="text-brand-500 text-sm font-normal ml-1 border border-brand-500/30 bg-brand-500/10 px-1.5 py-0.5 rounded">{t.localMode}</span>
             </h1>
           </div>
-          <button 
-            onClick={loadSample}
-            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
-          >
-            Load Sample
-          </button>
+          
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={loadSample}
+              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              {t.loadSample}
+            </button>
+            <div className="h-4 w-px bg-slate-700"></div>
+            <button
+              onClick={toggleLanguage}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors text-xs font-medium border border-slate-700"
+            >
+              <Languages className="w-3.5 h-3.5" />
+              <span>{lang === 'en' ? '繁體中文' : 'English'}</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -131,19 +153,22 @@ const App: React.FC = () => {
         {/* Editors Section - Top Half */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-h-0">
           <Editor 
-            label="Document Type Definition (DTD)" 
+            ref={dtdEditorRef}
+            label={t.dtdLabel} 
             value={dtdInput} 
             onChange={setDtdInput} 
-            placeholder="<!ELEMENT root (child)>..."
+            placeholder={t.dtdPlaceholder}
             languageLabel="DTD"
+            dropLabel={t.dropFile}
           />
           <Editor 
             ref={xmlEditorRef}
-            label="XML Document" 
+            label={t.xmlLabel}
             value={xmlInput} 
             onChange={setXmlInput} 
-            placeholder="<root><child>Value</child></root>"
+            placeholder={t.xmlPlaceholder}
             languageLabel="XML"
+            dropLabel={t.dropFile}
           />
         </div>
 
@@ -163,11 +188,11 @@ const App: React.FC = () => {
             `}
           >
             {loading ? (
-              <span>Validating...</span>
+              <span>{t.validating}</span>
             ) : (
               <>
                 <Play className="w-4 h-4 fill-current" />
-                <span>Start Validation</span>
+                <span>{t.startValidation}</span>
               </>
             )}
           </button>
@@ -175,7 +200,7 @@ const App: React.FC = () => {
           <button
              onClick={handleClear}
              className="flex items-center gap-2 px-4 py-3 rounded-full bg-slate-800 text-slate-400 hover:text-red-400 hover:bg-slate-700 transition-colors z-10"
-             title="Clear All"
+             title={t.clearAll}
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -189,13 +214,14 @@ const App: React.FC = () => {
                 result={result} 
                 loading={loading} 
                 error={error} 
-                onLineClick={handleJumpToLine}
+                onJump={handleJumpToLocation}
+                lang={lang}
               />
            </div>
            
            {/* History Panel */}
            <div className="lg:col-span-1 h-full overflow-hidden">
-              <HistoryPanel history={history} onRestore={handleRestoreHistory} />
+              <HistoryPanel history={history} onRestore={handleRestoreHistory} lang={lang} />
            </div>
         </div>
 

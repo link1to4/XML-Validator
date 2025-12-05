@@ -18,3 +18,5 @@ export interface HistoryItem {
   xml: string;
   result: ValidationResult;
 }
+
+export type Language = 'en' | 'zh';

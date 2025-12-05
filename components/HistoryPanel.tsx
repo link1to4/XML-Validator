@@ -1,19 +1,23 @@
 import React from 'react';
-import { HistoryItem } from '../types';
+import { HistoryItem, Language } from '../types';
 import { CheckCircle, XCircle, Clock, RotateCcw, History } from 'lucide-react';
+import { getTranslation } from '../constants/translations';
 
 interface HistoryPanelProps {
   history: HistoryItem[];
   onRestore: (item: HistoryItem) => void;
+  lang: Language;
 }
 
-const HistoryPanel: React.FC<HistoryPanelProps> = ({ history, onRestore }) => {
+const HistoryPanel: React.FC<HistoryPanelProps> = ({ history, onRestore, lang }) => {
+  const t = getTranslation(lang);
+
   return (
     <div className="flex flex-col h-full bg-slate-800 rounded-lg overflow-hidden border border-slate-700 shadow-xl">
       <div className="bg-slate-900/50 px-4 py-3 border-b border-slate-700 flex justify-between items-center shrink-0">
         <label className="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
           <History className="w-4 h-4 text-brand-500" />
-          History (Last 10)
+          {t.historyTitle}
         </label>
         <span className="text-xs text-slate-500 font-mono bg-slate-800 px-2 py-1 rounded">
           {history.length} / 10
@@ -24,7 +28,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ history, onRestore }) => {
         {history.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-500 opacity-60 min-h-[100px]">
             <Clock className="w-8 h-8 mb-2 opacity-50" />
-            <p className="text-sm">No history yet</p>
+            <p className="text-sm">{t.noHistory}</p>
           </div>
         ) : (
           history.map((item) => (
@@ -43,7 +47,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ history, onRestore }) => {
               <div className="min-w-0 flex-1">
                 <div className="flex justify-between items-center mb-1">
                   <span className={`text-xs font-bold ${item.result.isValid ? 'text-green-400' : 'text-red-400'}`}>
-                    {item.result.isValid ? 'Passed' : 'Failed'}
+                    {item.result.isValid ? t.passed : t.failed}
                   </span>
                   <span className="text-[10px] text-slate-500 font-mono">
                     {new Date(item.result.timestamp).toLocaleTimeString()}
@@ -51,8 +55,8 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ history, onRestore }) => {
                 </div>
                 <p className="text-xs text-slate-400 truncate leading-relaxed">
                   {item.result.isValid 
-                    ? "Strict compliance confirmed" 
-                    : `${item.result.errors.length} error${item.result.errors.length === 1 ? '' : 's'} found`}
+                    ? t.historySuccess 
+                    : `${item.result.errors.length} ${t.historyErrors}`}
                 </p>
               </div>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity self-center p-1 rounded-full bg-slate-600/50">

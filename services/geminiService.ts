@@ -6,6 +6,7 @@ interface DtdDefinition {
   allowedElements?: Set<string>; // For MIXED
   regex?: RegExp; // For CHILDREN
   rawSpec: string;
+  line: number; // Line number in DTD file
 }
 
 const parseDtd = (dtd: string): Map<string, DtdDefinition> => {
@@ -20,6 +21,10 @@ const parseDtd = (dtd: string): Map<string, DtdDefinition> => {
     const tagName = match[1];
     let spec = match[2].trim();
     
+    // Calculate line number for this definition
+    // Count newlines from start of string up to the match index + 1 (to be 1-based)
+    const line = dtd.substring(0, match.index).split(/\r\n|\r|\n/).length;
+
     // Remove comments within the spec if any (simple handling)
     spec = spec.replace(/--.*?--/g, '');
 
@@ -29,7 +34,8 @@ const parseDtd = (dtd: string): Map<string, DtdDefinition> => {
 
     const def: DtdDefinition = {
       type: 'CHILDREN',
-      rawSpec: spec
+      rawSpec: spec,
+      line: line
     };
 
     if (cleanSpec === 'EMPTY') {
@@ -175,8 +181,15 @@ const validateNode = (
   const errors: string[] = [];
   const tagName = node.tagName;
   const def = definitions.get(tagName);
-  const line = lineMap.get(node) || '?';
-  const prefix = `[Line ${line}]`;
+  
+  const xmlLine = lineMap.get(node) || '?';
+  const dtdLine = def ? def.line : null;
+  
+  // Construct location prefixes
+  let prefix = `[XML: ${xmlLine}]`;
+  if (dtdLine) {
+    prefix += ` [DTD: ${dtdLine}]`;
+  }
 
   // 1. Check if element is defined
   if (!def) {
@@ -220,7 +233,7 @@ const validateNode = (
       break;
 
     case 'CHILDREN':
-      // Element content - NO text allowed (whitespace is ignorable usually, strictly speaking depends on xml:space but we assume validation logic here checks for data)
+      // Element content - NO text allowed
       if (hasNonWhitespaceText) {
         errors.push(`${prefix} Element <${tagName}> has element-only content definition but contains text data: "${textContent.trim().substring(0, 20)}..."`);
       }

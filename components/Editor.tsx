@@ -14,6 +14,10 @@ interface EditorProps {
   dropLabel?: string;
 }
 
+const normalizeText = (text: string): string => {
+  return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+};
+
 const Editor = forwardRef<EditorHandle, EditorProps>(({ label, value, onChange, placeholder, languageLabel, dropLabel = "Drop file here to load" }, ref) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -22,7 +26,10 @@ const Editor = forwardRef<EditorHandle, EditorProps>(({ label, value, onChange, 
     scrollToLine: (lineNumber: number) => {
       if (!textareaRef.current) return;
 
-      const lines = value.split('\n');
+      // Ensure we are calculating based on the normalized view
+      const normalizedValue = normalizeText(value);
+      const lines = normalizedValue.split('\n');
+      
       // Line numbers are 1-based, array is 0-based
       const targetIndex = lineNumber - 1;
 
@@ -36,12 +43,8 @@ const Editor = forwardRef<EditorHandle, EditorProps>(({ label, value, onChange, 
       }
 
       // Set cursor position to the start of that line
-      // This forces the browser to scroll the textarea to reveal the cursor
       textareaRef.current.focus();
       textareaRef.current.setSelectionRange(charCount, charCount);
-      
-      // Optional: Smooth scroll adjustment to center slightly if supported/needed, 
-      // but focus() usually does the job well enough for standard textareas.
       textareaRef.current.blur(); 
       setTimeout(() => textareaRef.current?.focus(), 10);
     }
@@ -54,7 +57,6 @@ const Editor = forwardRef<EditorHandle, EditorProps>(({ label, value, onChange, 
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    // Check if we are really leaving the container, not just entering a child
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDragging(false);
     }
@@ -71,12 +73,18 @@ const Editor = forwardRef<EditorHandle, EditorProps>(({ label, value, onChange, 
       
       reader.onload = (event) => {
         if (event.target?.result) {
-          onChange(event.target.result as string);
+          // Normalize line endings immediately upon load
+          onChange(normalizeText(event.target.result as string));
         }
       };
       
       reader.readAsText(file);
     }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+     // Browsers usually normalize textarea value to \n, but we ensure it
+     onChange(e.target.value);
   };
 
   return (
@@ -101,7 +109,7 @@ const Editor = forwardRef<EditorHandle, EditorProps>(({ label, value, onChange, 
           ref={textareaRef}
           className="w-full h-full bg-slate-800 text-slate-300 p-4 font-mono text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:bg-slate-800/80 transition-all custom-scrollbar relative z-0"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={handleChange}
           placeholder={placeholder}
           spellCheck={false}
         />

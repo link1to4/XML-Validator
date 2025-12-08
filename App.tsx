@@ -99,17 +99,22 @@ const App: React.FC = () => {
 
   // Sample data for quick testing
   const loadSample = () => {
-    setDtdInput(`<!ELEMENT note (to,from,heading,body)>
+    // Normalize newlines to \n for consistency
+    const dtd = `<!ELEMENT note (to,from,heading,body)>
 <!ELEMENT to (#PCDATA)>
 <!ELEMENT from (#PCDATA)>
 <!ELEMENT heading (#PCDATA)>
-<!ELEMENT body (#PCDATA)>`);
-    setXmlInput(`<note>
+<!ELEMENT body (#PCDATA)>`.replace(/\r\n/g, '\n').trim();
+
+    const xml = `<note>
 <to>Tove</to>
 <from>Jani</from>
 <heading>Reminder</heading>
 <body>Don't forget me this weekend!</body>
-</note>`);
+</note>`.replace(/\r\n/g, '\n').trim();
+
+    setDtdInput(dtd);
+    setXmlInput(xml);
     setResult(null);
     setError(null);
   };

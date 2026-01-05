@@ -3,6 +3,7 @@ import { Play, Trash2, Languages } from 'lucide-react';
 import Editor, { EditorHandle } from './components/Editor';
 import ResultPanel from './components/ResultPanel';
 import HistoryPanel from './components/HistoryPanel';
+import SheetManager from './components/SheetManager';
 import { validateXmlWithDtd } from './services/geminiService';
 import { ValidationResult, HistoryItem, Language } from './types';
 import { getTranslation } from './constants/translations';
@@ -165,6 +166,13 @@ const App: React.FC = () => {
             placeholder={t.dtdPlaceholder}
             languageLabel="DTD"
             dropLabel={t.dropFile}
+            headerActions={
+              <SheetManager 
+                currentDtd={dtdInput}
+                onLoadDtd={(content) => setDtdInput(content.replace(/\r\n/g, '\n'))}
+                lang={lang}
+              />
+            }
           />
           <Editor 
             ref={xmlEditorRef}

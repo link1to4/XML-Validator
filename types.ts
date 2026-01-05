@@ -19,4 +19,9 @@ export interface HistoryItem {
   result: ValidationResult;
 }
 
+export interface DtdFile {
+  name: string;
+  content: string;
+}
+
 export type Language = 'en' | 'zh';

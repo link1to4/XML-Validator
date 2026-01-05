@@ -41,6 +41,8 @@ const SheetManager: React.FC<SheetManagerProps> = ({ currentDtd, onLoadDtd, lang
     setLoading(true);
     try {
       const files = await fetchDtdFiles(url);
+      // Sort alphabetically by name (A-Z)
+      files.sort((a, b) => a.name.localeCompare(b.name));
       setFileList(files);
     } catch (e) {
       console.error(e);
@@ -88,7 +90,7 @@ const SheetManager: React.FC<SheetManagerProps> = ({ currentDtd, onLoadDtd, lang
       {/* Load Dropdown */}
       <div className="relative">
         <select 
-          className="bg-slate-800 border border-slate-600 text-slate-300 text-xs rounded px-2 py-1.5 pr-8 focus:outline-none focus:border-brand-500 w-28 sm:w-40 appearance-none cursor-pointer hover:bg-slate-700 transition-colors"
+          className="bg-slate-800 border border-slate-600 text-slate-300 text-xs rounded px-2 py-1.5 pr-8 focus:outline-none focus:border-brand-500 w-32 sm:w-44 appearance-none cursor-pointer hover:bg-slate-700 transition-colors"
           onChange={(e) => {
               if (e.target.value) {
                   onLoadDtd(e.target.value);

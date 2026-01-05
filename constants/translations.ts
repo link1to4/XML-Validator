@@ -32,7 +32,7 @@ export const translations = {
     // Sheet Manager
     sheetStorage: "Google Sheets Storage",
     setupSheet: "Link Sheet",
-    selectFile: "Load...",
+    selectFile: "Loading existing DTD...",
     refreshList: "Refresh List",
     saveToSheet: "Save to Sheet",
     fileName: "File Name",
@@ -86,7 +86,7 @@ export const translations = {
     // Sheet Manager
     sheetStorage: "Google Sheets 雲端存取",
     setupSheet: "連結試算表",
-    selectFile: "載入...",
+    selectFile: "載入現有 DTD...",
     refreshList: "重新整理",
     saveToSheet: "儲存至試算表",
     fileName: "檔案名稱",

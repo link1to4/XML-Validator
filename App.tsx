@@ -126,9 +126,10 @@ const App: React.FC = () => {
       <header className="bg-slate-900 border-b border-slate-800 p-4 shrink-0 shadow-sm z-10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-brand-500 to-brand-700 rounded-lg flex items-center justify-center text-white font-bold">
-              XML
-            </div>
+            <svg className="w-8 h-8 hover:opacity-90 transition-opacity shadow-md rounded-xl" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+              <rect x="0" y="0" width="64" height="64" rx="12" fill="#005b96"/>
+              <text x="50%" y="53%" fontFamily="monospace" fontWeight="bold" fontSize="36" fill="white" textAnchor="middle" dominantBaseline="central">&lt;/&gt;</text>
+            </svg>
             <h1 className="text-xl font-bold text-slate-100 tracking-tight">
               {t.appTitle} <span className="text-brand-500 text-sm font-normal ml-1 border border-brand-500/30 bg-brand-500/10 px-1.5 py-0.5 rounded">{t.localMode}</span>
             </h1>
